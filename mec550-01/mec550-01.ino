@@ -14,7 +14,7 @@
  */
 
 int ledPin = 13;
-int seconds = 1;
+int seconds = 3;
 
 // the setup function runs once when you press reset or power the board
 void setup() {

@@ -1,4 +1,4 @@
-int motorPin = 12;
+int motorPin = 5;
 
 void setup() {
   pinMode(motorPin, OUTPUT);

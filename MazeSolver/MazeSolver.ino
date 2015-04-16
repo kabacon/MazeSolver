@@ -1,9 +1,9 @@
 #include <PID_v1.h>      // This is the PID library from http://playground.arduino.cc/Code/PIDLibrary
 #include <Encoder.h>     // This is the encoder library from http://www.pjrc.com/teensy/td_libs_Encoder.html
-#include <Servo.h>
+#include <Servo.h>       // Servo library
 
 #ifndef DEBUG
-//#define DEBUG          // Comment out this line to disable Serial output text (Uses memory and makes the program
+//#define DEBUG         // Comment out this line to disable Serial output text (Uses memory and makes the program
 #endif                  //                                                       run slower. Tuned parameters 
                         //                                                       will behave differently.)
 /*
@@ -16,23 +16,26 @@ const int pinMotorDirL1 = 4;      // and third pins define the direction of the 
 const int pinMotorDirL2 = 7;      // direction pin 1 is LOW and direction pin 2 is HIGH, the 
 const int pinMotorDirR1 = 8;      // motor will spin CCW. When direction pin 1 is HIGH and 
 const int pinMotorDirR2 = 9;      // direction pin 2 is LOW, the motor spins CCW
-const int pinServo = 10;          // I'm assuming we'll add a servo at some point
+const int pinServo = 10;          // Servo pin
 
 // Analog input pins
 const int pinIrL = A0;            // Left IR sensor
 const int pinIrR = A1;            // Right
 const int pinIrF1 = A2;           // Front 1          (Two front sensors for detecting the ping
-const int pinIrF2 = A3;           // Front 2           pong ball, unless we find another way) 
+const int pinIrF2 = A4;           // Front 2           pong ball, unless we find another way) 
+const int pinLightSensor = A3;    // Light sensor
 
 // Digital input pins
-const int button1 = 11;
-const int button2 = 12;
+const int button1 = 11;           // Forward button
+const int button2 = 12;           // Back button
+const int button3 = A5;           // Middle button
+const int pinBallFdbk = 13;       // Ball capture feedback button
 
 // Interrupt pins
-const int pinEncoderL1 = 2;      // The encoders use interrupt pins, which interrupt the
-const int pinEncoderL2 = 3;      // program in the middle of its loop whenever the encoder
-const int pinEncoderR1 = 0;      // switches state. This ensures each state switch is counted,
-const int pinEncoderR2 = 1;      // even if the motor is spinning faster than the loop runs.
+const int pinEncoderL1 = 3;      // The encoders use interrupt pins, which interrupt the
+const int pinEncoderL2 = 2;      // program in the middle of its loop whenever the encoder
+const int pinEncoderR1 = 1;      // switches state. This ensures each state switch is counted,
+const int pinEncoderR2 = 0;      // even if the motor is spinning faster than the loop runs.
 
 /*
   Constants and global variables are declared here.
@@ -45,12 +48,12 @@ double irDistanceDiff;     // Difference between the left and right IR sensor di
 double turnAmount;         // Amount that the robot should turn
 double setPoint = 0.0f;    // The ideal value for irSensorDiff
 
-
+// Movement parameters
 int fwdSpeed = 64;         // The forward speed, set to 64 for now until it can be tuned to run faster
 int turnSpeed = 64;        // Turning speed for corners
-int moveUpCount = 675;     // Encoder count for moving up into an intersection
-int moveOutCount = 300;    // Encoder count for moving out of an intersection
-int fullTurnCount = 710;   // Encoder count for making a 90 degree turn
+int moveUpCount = 850;     // Encoder count for moving up into an intersection
+int moveOutCount = distanceToEncoderCount(4.5);    // Encoder count for moving out of an intersection
+int fullTurnCount = rotationToEncoderCount(90);   // Encoder count for making a 90 degree turn
 
 // IR Sensor readings
 int irLeft = 0;            // Raw sensor readings
@@ -61,11 +64,16 @@ double distanceLeft = 0;   // Interpolated distances from the sensor readings
 double distanceRight = 0;
 double distanceFront1 = 0;
 double distanceFront2 = 0;
+double lastDistanceFront1 = 0;  // For comparing the change in front distance
+double lastDistanceFront2 = 0;
 
-const double maxWallDistance = 6.0f;  // Define the maximum wall distance in cm. If a wall is 
+// Light sensor reading
+int lightReading = 0;
+
+const double maxWallDistance = 8.0f;  // Define the maximum wall distance in cm. If a wall is 
                                       // farther than, the robot will respond as if there is
                                       // no wall there. (This should be tuned)
-const double minWallDistance = 2.0f;  // Define the minimum wall distance in cm (for the front).
+const double minWallDistance = 5.0f;  // Define the minimum wall distance in cm (for the front).
                                       // If a wall is closer than this, the robot will stop, since
                                       // there's a wall right in front of it. (This should be tuned)
 
@@ -73,6 +81,24 @@ bool started = false;      // This becomes true once the program has started, al
                            // robot to start with a button press
 bool turnLeft = false;     // Is the robot turning left? This is used to allow the PID
                            // controller to turn in both directions
+
+// Light sensor constants
+const int GREEN_MIN = 300;
+const int GREEN_MAX = 350;
+const int RED_MIN = 380;
+const int RED_MAX = 420;
+const int WHITE_MIN = 430;
+
+// White surface gives a light sensor reading of ~430-485
+// Red ~360-400
+// Green ~300-360
+
+// Servo constants
+const int SERVO_DOWN = 180;
+const int SERVO_UP = 0;
+bool ballCaptured = false;
+const int scanningSpeed = 10;
+const double ballThreshold = 1.0;
 
 /*
   Objects from the various libraries are created here.
@@ -83,6 +109,9 @@ PID pid(&irDistanceDiff, &turnAmount, &setPoint, kP, kI, kD, DIRECT);    // The 
 // Motor encoder objects
 Encoder encoderLeft(pinEncoderL1, pinEncoderL2);    // These keep track of the encoder rotation
 Encoder encoderRight(pinEncoderR1, pinEncoderR2);
+
+// Servo object
+Servo servo;
 
 // Define different behavior states
 int currentState;
@@ -95,10 +124,21 @@ const int STATE_MOVE_UP_FOLLOW_LEFT =         20;   // When moving up to a corne
 const int STATE_MOVE_UP_FOLLOW_RIGHT =        21;   // left or right, follow it. Otherwise, just move up 
 const int STATE_MOVE_UP_BLIND =               22;   // blindly
 const int STATE_MOVING_THROUGH_INTERSECTION = 23;
+const int STATE_SCANNING =                    31;
+const int STATE_CENTERING_BALL =              32;
+const int STATE_MOVING_TO_BALL =              33;
+const int STATE_BALL_CAPTURE =                34;
+const int STATE_MOVE_BACK_FROM_BALL =         35;
+
+
 
 /*
-  ==================================================================================================
+  Program functions
+
+  =================================================================================================================
 */
+
+
 
 /*
   PROGRAM STARTS HERE - Configure all digital input and output pins, 
@@ -124,6 +164,10 @@ void setup() {
   // Initialize the PID controller
   pid.SetMode(AUTOMATIC);
   
+  // Initialize the servo
+  servo.attach(pinServo);
+  servo.write(SERVO_UP);
+  
   // If DEBUG is defined at the top, start a serial connection
   #ifdef DEBUG
   Serial.begin(9600);
@@ -143,6 +187,8 @@ void loop() {
   case STATE_PAUSED:
     if (digitalRead(button1) == HIGH) {
       currentState = STATE_MOVING_FORWARD;
+    } else if (digitalRead(button3)) {
+      servo.write(SERVO_UP);
     } else {
       delay(50);
       #ifdef DEBUG                      // If debugging, indicate that
@@ -169,7 +215,7 @@ void loop() {
   
   //  For now, just move forward
   case STATE_TURNING_AROUND:
-    currentState = STATE_MOVING_FORWARD;
+    turnAroundState();
     break;
   
   // The robot is moving up to an intersection, following the wall to its left.
@@ -197,6 +243,26 @@ void loop() {
   case STATE_MOVING_THROUGH_INTERSECTION:
     moveUpThroughIntersectionState();
     break;
+    
+    case STATE_SCANNING:
+    scanningState();
+    break;
+    
+    case STATE_CENTERING_BALL:
+    centerBallState();
+    break;
+    
+    case STATE_MOVING_TO_BALL:
+    moveToBallState();
+    break;
+    
+    case STATE_BALL_CAPTURE:
+    ballCaptureState();
+    break;
+    
+    case STATE_MOVE_BACK_FROM_BALL:
+    moveBackFromBallState();
+    
   }
 
   // If DEBUG is defined, a whole bunch of output text is printed to the Serial monitor
@@ -212,13 +278,34 @@ void loop() {
   }
 }
 
+
+
+/*
+  State Behaviors defined here
+  
+  ==================================================================================================================
+*/
+
+
+
 /*
   Take IR sensor readings, and use the PID controller to drive between the walls on 
   the left and right. Check to see that the robot should still be moving forward
 */
 void moveForwardState() {
-  // Take IR sensor readings
-  takeIrSensorReadings();
+  // Take sensor readings
+  takeSensorReadings();
+  ballCaptured = digitalRead(pinBallFdbk);
+  
+  // First, if the ball area is reached, change state
+  if (!ballCaptured && lightReading <= RED_MAX && lightReading >= RED_MIN) { //  
+    currentState = STATE_SCANNING;
+    moveForward(32, 0);
+    delay(400);
+    stopAndResetEncoders();
+    moveForward(0, scanningSpeed);
+    return;
+  }
   
   // If the walls are far away to the left or right, the robot shouldn't be moving
   // forward. Switch state.
@@ -285,25 +372,31 @@ void moveForwardState() {
 void moveUpBlindState() {
   // Check the encoder counters to see if the robot is done moving up, or check to see if
   // there's a wall directly in front for some reason.
+  takeSensorReadings();
+  
   if ((encoderLeft.read() > moveUpCount && encoderRight.read() > moveUpCount) || distanceFront1 < minWallDistance) {
     stopAndResetEncoders();
     
     // Decide which direction to turn
-    if (distanceRight > maxWallDistance) {
+    if (distanceRight > maxWallDistance) {                            // Turn Right
       stopAndResetEncoders();
       currentState = STATE_TURNING_RIGHT;
       return;
-    } else if (distanceLeft > maxWallDistance) {
+    } else if (distanceFront1 > maxWallDistance + minWallDistance) {  // Go Straight
+      stopAndResetEncoders();
+      currentState = STATE_MOVING_THROUGH_INTERSECTION;
+      return;
+    } else if (distanceLeft > maxWallDistance) {                      // Turn Left
       stopAndResetEncoders();
       currentState = STATE_TURNING_LEFT;
       return;
-    } else {
+    } else {                                                          // Turn Around
       stopAndResetEncoders();
       currentState = STATE_TURNING_AROUND;
       return;
     }
     currentState = STATE_TURNING_LEFT;   // Change the state
-    return;                                    // Don't continue this function
+    return;                              // Don't continue this function
   } 
   
   // Continue to move up blindly into the intersection
@@ -357,6 +450,104 @@ void turnRightState() {
   moveForward(0, -turnSpeed);
 }
 
+
+/*
+  Turn the robot 90 degrees right
+*/
+void turnAroundState() {
+  // Check the encoder counters to see if the robot is done turning
+  if (encoderLeft.read() > 2 * fullTurnCount && encoderRight.read() < 2 * fullTurnCount) {
+    // The robot is done turning, move up out of the intersection
+    stopAndResetEncoders();
+    currentState = STATE_MOVING_THROUGH_INTERSECTION;
+  }
+  
+  // Otherwise, keep turning
+  moveForward(0, -turnSpeed);
+}
+
+/*
+  Scan left and right to find the ball
+*/
+void scanningState() {
+  // Right encoder goes more than 90 degrees, turn left
+  if (encoderRight.read() > rotationToEncoderCount(30)) {
+    moveForward(0, -scanningSpeed);
+  } else if (encoderLeft.read() > rotationToEncoderCount(30)) {
+    moveForward(0, scanningSpeed);
+  } 
+  
+  takeSensorReadings();
+  if (distanceFront1 < 6.0) { //lastDistanceFront1 - distanceFront1 > ballThreshold )// && lastDistanceFront < 5) {  // Edge of ball found
+    currentState = STATE_CENTERING_BALL;
+  }
+  
+}
+
+/*
+  Center the ball in front of the light sensor
+*/
+void centerBallState() {
+  takeSensorReadings();
+  if (lastDistanceFront1 < distanceFront1) {
+    stopAndResetEncoders();
+    currentState = STATE_MOVING_TO_BALL;
+  }
+}
+
+/*
+  After the ball is centered, move up to the ball
+*/
+void moveToBallState() {
+  takeSensorReadings();
+  if (distanceFront1 > 5.8) {
+    moveForward(10,0);
+  } else {
+    moveForward(0,0);
+    currentState = STATE_BALL_CAPTURE;
+  }
+}
+
+/*
+  Lower the gate to capture the ball. If the ball was captured, back away. If not,
+  open the gate before backing away
+*/
+void ballCaptureState() {
+    servo.write(SERVO_DOWN);
+    delay(1500);
+    ballCaptured = digitalRead(pinBallFdbk);
+    if (!ballCaptured) {
+      servo.write(SERVO_UP);
+    }
+    currentState = STATE_MOVE_BACK_FROM_BALL;
+}
+
+/*
+  Back away from the ball location (whether the ball has been captured or not)
+*/
+void moveBackFromBallState() {
+  if (encoderLeft.read() > 0 && encoderRight.read() > 0) {
+    moveForward(-10, 0);
+  } else if (ballCaptured) {
+    currentState = STATE_PAUSED;
+    moveForward(0,0);
+  } else {
+    moveForward(0, -scanningSpeed);
+    currentState = STATE_SCANNING;
+  }
+}
+
+
+
+/*
+  Some helper functions
+  
+  ===================================================================================================================
+*/
+
+
+
+
 /*
   Stop the robot and reset both encoder counters
 */
@@ -369,17 +560,20 @@ void stopAndResetEncoders() {
 /*
   Take IR sensor readings for each sensor, and convert the raw number to a distance 
 */
-void takeIrSensorReadings() {
+void takeSensorReadings() {
   
   irLeft = analogRead(pinIrL);
   irRight = analogRead(pinIrR);
   irFront1 = analogRead(pinIrF1);
 //  irFront2 = analogRead(pinIrF2);    // No sensor here yet
+  lightReading = analogRead(pinLightSensor);
   
   // Calibrate sensors if needed
   // irRight -= 30;
   
   // Convert the voltage readings to distances
+  lastDistanceFront2 = lastDistanceFront1;
+  lastDistanceFront1 = distanceFront1;
   distanceLeft = irDistanceFromVoltage(irLeft);      // irDistanceFromVoltage is a
   distanceRight = irDistanceFromVoltage(irRight);    // function, defined below.
   distanceFront1 = irDistanceFromVoltage(irFront1);
@@ -402,7 +596,7 @@ double irDistanceFromVoltage(int binary) {
 
 /*
   This function takes two parameters, velocity and turnAmount, and moves the robot
-  forward by setting the left and right motor speeds.
+  forward by setting the left and right motor speeds. Positive turnAmount turns LEFT.
 */
 void moveForward(int velocity, double turnAmount) {
   setLeftMotor(velocity - turnAmount);        // setLeftMotor is a function, defined below
@@ -444,6 +638,22 @@ void setRightMotor(int pwm) {
   }
 }
 
+int distanceToEncoderCount(double cm) {
+  return (int)(cm * 2000 / 17.0);
+}
+
+int rotationToEncoderCount(double deg) {
+  return (int)(deg * 1000 / 123.0);
+}
+
+
+/*
+  Debug output text and helper functions. These will only be compiled if DEBUG is defined.
+  
+  =======================================================================================================================
+*/
+
+
 
 /*
   If DEBUG is defined, output debugging text to the serial monitor
@@ -475,6 +685,8 @@ void outputDebugText() {
 //  Serial.println(irFront2);
 //  Serial.print("Front sensor 2 Distance: ");
 //  Serial.println(distanceFront2);
+  Serial.print("Light sensor: ");
+  Serial.println(lightReading);
   Serial.print("Left encoder:  ");
   Serial.println(encoderLeft.read());
   Serial.print("Right encoder: ");
@@ -506,6 +718,16 @@ String stateToString(int state) {
     return "Moving Up -- Following Right Wall";
   case STATE_MOVE_UP_BLIND:
     return "Moving Up -- Blind";
+  case STATE_SCANNING:
+    return "Scanning";
+  case STATE_CENTERING_BALL:
+    return "Centering Ball";
+  case STATE_MOVING_TO_BALL:
+    return "Moving to Ball";
+  case STATE_BALL_CAPTURE:
+    return "Ball Capture";
+  case STATE_MOVE_BACK_FROM_BALL:
+    return "Moving Back from Ball";
   default:
     return "?????";
   }

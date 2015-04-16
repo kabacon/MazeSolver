@@ -25,7 +25,7 @@
  * http://www.arduino.cc/en/Tutorial/Melody
  */
   
-int speakerPin = 10;
+int speakerPin = 9;
 int length = 16; // the number of notes
 char notes[] = "fcfbcFfcgfedcbc "; // a space represents a rest
 int beats[] = { 4, 2, 10, 2, 4, 10, 2, 2, 2, 10, 3, 1, 1, 3, 10, 16 };

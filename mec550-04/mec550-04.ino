@@ -2,7 +2,7 @@
 
 Servo servo;
 int pos;
-int servoPin = 11;
+int servoPin = 3;
 
 void setup() {
   servo.attach(servoPin);
