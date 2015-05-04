@@ -5,22 +5,23 @@ class Edge;
 
 class Node {
 private:
-	bool north, south, east, west;
+	int directions;	// Store whether there are edges in all 4 directions in one byte
 	Edge* northEdge;
 	Edge* southEdge;
 	Edge* eastEdge;
 	Edge* westEdge;
-	int x, y;
+	long x, y;
 
 public:
-	Node() : north(false), south(false), east(false), west(false), x(0), y(0) {
-		northEdge = 0;
-		southEdge = 0;
-		eastEdge = 0;
-		westEdge = 0;
+	Node() : directions(0), x(0), y(0) {
+		
 	}
-	Node(bool north, bool south, bool east, bool west) : north(north),
-		south(south), east(east), west(west), x(0), y(0) {
+	Node(bool north, bool south, bool east, bool west) : x(0), y(0) {
+		directions = 0;
+		if (north) directions += 1;
+		if (south) directions += 2;
+		if (east)  directions += 4;
+		if (west)  directions += 8;
 		northEdge = 0;
 		southEdge = 0;
 		eastEdge = 0;
@@ -34,10 +35,10 @@ public:
 		delete westEdge;
 	}
 
-	bool hasNorth() { return north; }
-	bool hasSouth() { return south; }
-	bool hasEast()	{ return east;  }
-	bool hasWest()	{ return west;  }
+	bool hasNorth() { return directions % 2; 	 }
+	bool hasSouth() { return directions / 2 % 2;  }
+	bool hasEast()	{ return directions / 4 % 2;  }
+	bool hasWest()	{ return directions / 8 % 2;  }
 
 	void setNorthEdge(Edge* e) { northEdge = e; }
 	void setSouthEdge(Edge* e) { southEdge = e; }
@@ -49,10 +50,13 @@ public:
 	Edge* getEast()  { return eastEdge;	 }
 	Edge* getWest()  { return westEdge;	 }
 
-	void setX(int x);
-	void setY(int y);
-	int getX() { return x; }
-	int getY() { return y; }
+	void setX(long x)	{ this->x = x; }
+	void setY(long y)	{ this->y = y; }
+	long getX() { return x; }
+	long getY() { return y; }
+
+	// Get the distance to another node, if it's connected
+	long getDistance(Node* n);
 };
 
 #endif
@@ -65,10 +69,10 @@ private:
 	Node* n1;
 	Node* n2;
 
-	int length;
+	long length;
 
 public:
-	Edge(Node* n1, Node* n2, int length) {
+	Edge(Node* n1, Node* n2, long length) {
 		this->n1 = n1;
 		this->n2 = n2;
 		this->length = length;
@@ -81,7 +85,7 @@ public:
 
 	Node* getNode1() { return n1; }
 	Node* getNode2() { return n2; }
-	int  getLength() { return length; }
+	long  getLength() { return length; }
 };
 
 #endif

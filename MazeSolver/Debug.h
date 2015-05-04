@@ -1,3 +1,5 @@
+#ifdef DEBUG
+
 /*
   Debug output text and helper functions. These will only be compiled if DEBUG is defined.
   
@@ -5,11 +7,15 @@
 */
 
 
+
+String stateToString(int state);
+extern int getEncoderL();
+extern int getEncoderR();
+
 /*
   If DEBUG is defined, output debugging text to the serial monitor
 */
-#ifdef DEBUG
-void outputDebugText() {
+void outputDebugText() {/*
   Serial.print("CURRENT STATE: ");
   Serial.println(stateToString(currentState));
   Serial.print("Left sensor:  ");
@@ -38,9 +44,13 @@ void outputDebugText() {
   Serial.print("Light sensor: ");
   Serial.println(lightReading);
   Serial.print("Left encoder:  ");
-  Serial.println(encoderLeft.read());
+  Serial.println(getEncoderL());
   Serial.print("Right encoder: ");
-  Serial.println(encoderRight.read());
+  Serial.println(getEncoderR());
+  Serial.println();*/
+  Serial.print("Free memory: ");
+  Serial.println(freeMemory());
+  Serial.println("~600 bytes used for debug");
   Serial.println("============================");
   delay(100);
 }

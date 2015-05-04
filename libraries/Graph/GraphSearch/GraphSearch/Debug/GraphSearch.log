@@ -1,5 +1,31 @@
-﻿Build started 4/16/2015 2:11:54 PM.
+﻿Build started 5/4/2015 12:49:20 AM.
+     1>Project "C:\Users\Bacon\Dropbox\Stony Brook\MEC\550 Intro to Mechatronics\Arduino\libraries\Graph\GraphSearch\GraphSearch\GraphSearch.vcxproj" on node 2 (Build target(s)).
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt ..\..\Graph.cpp ..\..\Test.cpp
+         Test.cpp
+         Graph.cpp
+     1>c:\users\bacon\dropbox\stony brook\mec\550 intro to mechatronics\arduino\libraries\graph\node.h(32): warning C4150: deletion of pointer to incomplete type 'Edge'; no destructor called
+                 c:\users\bacon\dropbox\stony brook\mec\550 intro to mechatronics\arduino\libraries\graph\node.h(4) : see declaration of 'Edge'
+     1>c:\users\bacon\dropbox\stony brook\mec\550 intro to mechatronics\arduino\libraries\graph\node.h(33): warning C4150: deletion of pointer to incomplete type 'Edge'; no destructor called
+                 c:\users\bacon\dropbox\stony brook\mec\550 intro to mechatronics\arduino\libraries\graph\node.h(4) : see declaration of 'Edge'
+     1>c:\users\bacon\dropbox\stony brook\mec\550 intro to mechatronics\arduino\libraries\graph\node.h(34): warning C4150: deletion of pointer to incomplete type 'Edge'; no destructor called
+                 c:\users\bacon\dropbox\stony brook\mec\550 intro to mechatronics\arduino\libraries\graph\node.h(4) : see declaration of 'Edge'
+     1>c:\users\bacon\dropbox\stony brook\mec\550 intro to mechatronics\arduino\libraries\graph\node.h(35): warning C4150: deletion of pointer to incomplete type 'Edge'; no destructor called
+                 c:\users\bacon\dropbox\stony brook\mec\550 intro to mechatronics\arduino\libraries\graph\node.h(4) : see declaration of 'Edge'
+     1>c:\users\bacon\dropbox\stony brook\mec\550 intro to mechatronics\arduino\libraries\graph\node.h(38): warning C4800: 'int' : forcing value to bool 'true' or 'false' (performance warning)
+     1>c:\users\bacon\dropbox\stony brook\mec\550 intro to mechatronics\arduino\libraries\graph\node.h(39): warning C4800: 'int' : forcing value to bool 'true' or 'false' (performance warning)
+     1>c:\users\bacon\dropbox\stony brook\mec\550 intro to mechatronics\arduino\libraries\graph\node.h(40): warning C4800: 'int' : forcing value to bool 'true' or 'false' (performance warning)
+     1>c:\users\bacon\dropbox\stony brook\mec\550 intro to mechatronics\arduino\libraries\graph\node.h(41): warning C4800: 'int' : forcing value to bool 'true' or 'false' (performance warning)
+     1>c:\users\bacon\dropbox\stony brook\mec\550 intro to mechatronics\arduino\libraries\graph\graph.cpp(231): warning C4244: '=' : conversion from 'float' to 'long', possible loss of data
+     1>c:\users\bacon\dropbox\stony brook\mec\550 intro to mechatronics\arduino\libraries\graph\graph.cpp(240): warning C4244: 'return' : conversion from 'long' to 'float', possible loss of data
+         Generating Code...
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Bacon\Dropbox\Stony Brook\MEC\550 Intro to Mechatronics\Arduino\libraries\Graph\GraphSearch\Debug\GraphSearch.exe" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\Bacon\Dropbox\Stony Brook\MEC\550 Intro to Mechatronics\Arduino\libraries\Graph\GraphSearch\Debug\GraphSearch.pdb" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\Bacon\Dropbox\Stony Brook\MEC\550 Intro to Mechatronics\Arduino\libraries\Graph\GraphSearch\Debug\GraphSearch.lib" /MACHINE:X86 Debug\Graph.obj
+         Debug\Node.obj
+         Debug\Test.obj
+     1>LINK : fatal error LNK1561: entry point must be defined
+     1>Done Building Project "C:\Users\Bacon\Dropbox\Stony Brook\MEC\550 Intro to Mechatronics\Arduino\libraries\Graph\GraphSearch\GraphSearch\GraphSearch.vcxproj" (Build target(s)) -- FAILED.
 
-Build succeeded.
+Build FAILED.
 
-Time Elapsed 00:00:00.05
+Time Elapsed 00:00:00.89

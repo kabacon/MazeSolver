@@ -10,13 +10,55 @@
 #include <Encoder.h>     // This is the encoder library from http://www.pjrc.com/teensy/td_libs_Encoder.html
 #include <Servo.h>       // Servo library
 
-
 #ifndef DEBUG
-//#define DEBUG         // Comment out this line to disable Serial output text (Uses memory and makes the program
-#endif                  //                                                       run slower. Tuned parameters 
-                        //                                                       will behave differently.)
+//#define DEBUG         // Comment out this line to disable Serial output text (Uses ~600 bytes of memory 
+#include <MemoryFree.h>
+#endif                  // and makes the program run slower.
+
 #include "Constants.h"  // Constants and global variables are here
 #include "Debug.h"      // Debug output stuff is here
+
+
+/*
+  Global variables are declared here.
+*/
+// PID Controller
+double kP = 20.0f;         // Proportional gain
+double kI = 0.0f;          // Integral gain
+double kD = 2.0f;          // Derivative gain
+double irDistanceDiff;     // Difference between the left and right IR sensor distances
+double turnAmount;         // Amount that the robot should turn
+double setPoint = 0.0f;    // The ideal value for irSensorDiff
+
+// IR Sensor readings
+int irLeft = 0;            // Raw sensor readings
+int irRight = 0;
+int irFront1 = 0;
+int irFront2 = 0;
+double distanceLeft = 0;   // Interpolated distances from the sensor readings
+double distanceRight = 0;
+double distanceFront1 = 0;
+double distanceFront2 = 0;
+double lastDistanceFront1 = 0;  // For comparing the change in front distance
+double lastDistanceFront2 = 0;
+
+// Light sensor reading
+int lightReading = 500;
+
+// Moving zeroes for the encoders
+int encoderLZero = 0;
+int encoderRZero = 0;
+
+bool started = false;      // This becomes true once the program has started, allows the 
+                           // robot to start with a button press
+bool turnLeft = false;     // Is the robot turning left? This is used to allow the PID
+                           // controller to turn in both directions 
+
+bool ballCaptured = false; // Does the robot have the ball?
+
+int movingDirection = 0;
+  
+  
 
 /*
   Objects from the various libraries are created here.
@@ -31,10 +73,9 @@ Encoder encoderRight(pinEncoderR1, pinEncoderR2);
 // Servo object
 Servo servo;
 
-
-//Node* previousNode;
-
-
+// Graph for mapping the maze
+Graph graph(true, false, false, false);
+                         
 /*
   Program functions
 
@@ -211,10 +252,7 @@ void moveForwardState() {
   // First, if the ball area is reached, change state
   if (!ballCaptured && lightReading <= RED_MAX && lightReading >= RED_MIN) { //  
     currentState = STATE_SCANNING;
-    /*
-    moveForward(32, 0);
-    delay(400);
-    */
+    
     zeroEncoders();
     moveForward(0, scanningSpeed);
     return;
@@ -248,6 +286,9 @@ void moveForwardState() {
   // If there is a wall directly in front of the robot (and walls to the left and 
   // right), turn around 180 degrees.
   if (distanceFront1 < minWallDistance) {
+    int l = (encoderLeft.read() + encoderRight.read()) / 2;    // Add a dead-end node to the graph
+    graph.addNode(false, false, false, movingDirection, l);
+    movingDirection = (movingDirection + 2) % 4;
     zeroEncoders();
     currentState = STATE_TURNING_AROUND;   // Change the state
     return;                               // Don't continue this function
@@ -291,29 +332,31 @@ void moveUpBlindState() {
   if ((encoderLeft.read() > encoderLZero + distanceToEncoderCount(moveUpDist) && 
             encoderRight.read() > encoderRZero + distanceToEncoderCount(moveUpDist)) || 
             distanceFront1 < minWallDistance) {
-    zeroEncoders();
+              
+    int L = (encoderLeft.read() + encoderRight.read()) / 2;    // Add a node to the graph
+    bool forward = distanceFront1 > maxWallDistance;
+    bool left = distanceLeft > maxWallDistance;
+    bool right = distanceRight > maxWallDistance;
+    graph.addNode(forward, left, right, movingDirection, L);
     
     // Add a node to the graph here <------------------------------------------------------------------------------
     
     // Decide which direction to turn
     if (distanceRight > maxWallDistance) {                            // Turn Right
-      zeroEncoders();
-      //stopAndResetEncoders();
+      movingDirection = (movingDirection + 1) % 4;
       currentState = STATE_TURNING_RIGHT;
       return;
     } else if (distanceFront1 > maxWallDistance + minWallDistance) {  // Go Straight
-      resetEncoders();                                                // Reset the encoders, since this is the start
-      moveForward(fwdSpeed, 0);                                       // of a new path in the right direction
+      moveForward(fwdSpeed, 0);
+      resetEncoders();
       currentState = STATE_MOVING_THROUGH_INTERSECTION;
       return;
     } else if (distanceLeft > maxWallDistance) {                      // Turn Left
-      zeroEncoders();
-      //stopAndResetEncoders();
+      movingDirection = (movingDirection + 3) % 4;
       currentState = STATE_TURNING_LEFT;
       return;
     } else {                                                          // Turn Around
-      zeroEncoders();
-      //stopAndResetEncoders();
+      movingDirection = (movingDirection + 2) % 4;
       currentState = STATE_TURNING_AROUND;
       return;
     }
@@ -333,8 +376,6 @@ void moveUpThroughIntersectionState() {
   if ((encoderLeft.read() > distanceToEncoderCount(moveOutDist) + encoderLZero && 
             encoderRight.read() > distanceToEncoderCount(moveOutDist) + encoderRZero) || 
             distanceFront1 < minWallDistance) {
-    zeroEncoders();
-    //stopAndResetEncoders();
     currentState = STATE_MOVING_FORWARD;
   } 
   
@@ -554,23 +595,18 @@ void resetEncoders() {
   Take IR sensor readings for each sensor, and convert the raw number to a distance 
 */
 void takeSensorReadings() {
-  
+  // Read from the IR sensors and light sensor
   irLeft = analogRead(pinIrL);
   irRight = analogRead(pinIrR);
   irFront1 = analogRead(pinIrF1);
-//  irFront2 = analogRead(pinIrF2);    // No sensor here yet
   lightReading = analogRead(pinLightSensor);
-  
-  // Calibrate sensors if needed
-  // irRight -= 30;
   
   // Convert the voltage readings to distances
   lastDistanceFront2 = lastDistanceFront1;
   lastDistanceFront1 = distanceFront1;
   distanceLeft = irDistanceFromVoltage(irLeft);      // irDistanceFromVoltage is a
   distanceRight = irDistanceFromVoltage(irRight);    // function, defined below.
-  distanceFront1 = irDistanceFromVoltage(irFront1);
-//  distanceFront2 = irDistanceFromVoltage(irFront2);
+  distanceFront1 = irDistanceFromVoltage(irFront1);\
 }
 
 /*

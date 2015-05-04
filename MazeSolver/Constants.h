@@ -30,41 +30,16 @@ const int pinEncoderR1 = 1;      // switches state. This ensures each state swit
 const int pinEncoderR2 = 0;      // even if the motor is spinning faster than the loop runs.
 
 /*
-  Constants and global variables are declared here.
+  Constants are declared here
 */
-// PID Controller
-double kP = 20.0f;         // Proportional gain
-double kI = 0.0f;          // Integral gain
-double kD = 2.0f;          // Derivative gain
-double irDistanceDiff;     // Difference between the left and right IR sensor distances
-double turnAmount;         // Amount that the robot should turn
-double setPoint = 0.0f;    // The ideal value for irSensorDiff
 
 // Movement parameters
-int fwdSpeed = 64;         // The forward speed, set to 64 for now until it can be tuned to run faster
-int turnSpeed = 64;        // Turning speed for corners
-int moveUpDist = 6.0;     // Encoder count for moving up into an intersection
-int moveOutDist = 4.5;    // Encoder count for moving out of an intersection
-int fullTurnRot = 90;   // Encoder count for making a 90 degree turn
+const int fwdSpeed = 64;         // The forward speed, set to 64 for now until it can be tuned to run faster
+const int turnSpeed = 64;        // Turning speed for corners
+const int moveUpDist = 6.0;     // Encoder count for moving up into an intersection
+const int moveOutDist = 4.5;    // Encoder count for moving out of an intersection
+const int fullTurnRot = 90;   // Encoder count for making a 90 degree turn
 
-// IR Sensor readings
-int irLeft = 0;            // Raw sensor readings
-int irRight = 0;
-int irFront1 = 0;
-int irFront2 = 0;
-double distanceLeft = 0;   // Interpolated distances from the sensor readings
-double distanceRight = 0;
-double distanceFront1 = 0;
-double distanceFront2 = 0;
-double lastDistanceFront1 = 0;  // For comparing the change in front distance
-double lastDistanceFront2 = 0;
-
-// Light sensor reading
-int lightReading = 0;
-
-// Moving zeroes for the encoders
-int encoderLZero = 0;
-int encoderRZero = 0;
 
 const double maxWallDistance = 8.0f;  // Define the maximum wall distance in cm. If a wall is 
                                       // farther than, the robot will respond as if there is
@@ -72,11 +47,6 @@ const double maxWallDistance = 8.0f;  // Define the maximum wall distance in cm.
 const double minWallDistance = 5.8f;  // Define the minimum wall distance in cm (for the front).
                                       // If a wall is closer than this, the robot will stop, since
                                       // there's a wall right in front of it. (This should be tuned)
-
-bool started = false;      // This becomes true once the program has started, allows the 
-                           // robot to start with a button press
-bool turnLeft = false;     // Is the robot turning left? This is used to allow the PID
-                           // controller to turn in both directions
 
 // Light sensor constants
 const int GREEN_MIN = 300;  // 300
@@ -88,7 +58,8 @@ const int WHITE_MIN = 430;  // 430
 // Servo constants
 const int SERVO_DOWN = 180;
 const int SERVO_UP = 0;
-bool ballCaptured = false;
+
+// Ball capture parameters
 const int scanningSpeed = 16;
 const double ballThreshold = 1.0;
 
